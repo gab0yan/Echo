@@ -5,7 +5,7 @@ var _t := 0.0
 
 func _ready() -> void:
 	Sfx.process_mode = Node.PROCESS_MODE_DISABLED
-	print("[server] ready. Players connect to this machine on UDP port %d." % Net.PORT)
+	print("[server] ready. Players can now connect.")
 
 
 func _process(delta: float) -> void:

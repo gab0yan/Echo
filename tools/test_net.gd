@@ -28,51 +28,97 @@ func _detach() -> void:
 	await _start()
 
 
+func _flag(n: String) -> String:
+	return OS.get_environment("ECHO_FLAGS") + "/" + n
+
+
 func _start() -> void:
-	if OS.get_environment("ECHO_ROLE") == "host":
-		await _host()
-	else:
-		await _client()
+	if OS.get_environment("ECHO_SERVER") != "":
+		Game.settings.server = OS.get_environment("ECHO_SERVER")
+	match OS.get_environment("ECHO_ROLE"):
+		"host":
+			await _host()
+		"a":
+			await _guest_a()
+		"b":
+			await _guest_b()
 	get_tree().quit()
 
 
 func _host() -> void:
-	await _wait(1.0)
-	Net.create_room()
-	var ok := await _until(func() -> bool: return Net.room_code != "", 15.0)
-	print("[host] room created: %s code=%s" % [ok, Net.room_code])
-	var f := FileAccess.open(OS.get_environment("ECHO_CODE_FILE"), FileAccess.WRITE)
-	f.store_string(Net.room_code)
-	f.close()
-	ok = await _until(func() -> bool: return Net.peer_connected, 30.0)
-	print("[host] friend joined with the code: ", ok)
+	Game.settings.player_name = "Alen"
+	Net.connect_server()
+	var ok := await _until(func() -> bool: return Net.state == Net.State.BROWSING, 15.0)
+	print("[host] connected and browsing: ", ok)
+	Net.create_lobby("Alen's lobby", true)
+	ok = await _until(func() -> bool: return Net.state == Net.State.WAITING, 10.0)
+	print("[host] public lobby created: %s code=%s" % [ok, Net.room_code])
+	ok = await _until(func() -> bool: return Net.state == Net.State.PAIRED, 30.0)
+	print("[host] first player joined: %s (%s)" % [ok, Net.partner_name])
+	await _wait(0.5)
+	Net.kick_partner()
+	ok = await _until(func() -> bool: return Net.state == Net.State.WAITING, 10.0)
+	print("[host] kicked them, lobby open again: %s  status: %s" % [ok, Net.status])
+	ok = await _until(func() -> bool: return Net.state == Net.State.PAIRED, 40.0)
+	print("[host] second player joined: %s (%s)" % [ok, Net.partner_name])
 	await _wait(0.5)
 	Net.start_level(0)
 	ok = await _until(func() -> bool: return Net.level != null and Net.level.players.size() == 2, 10.0)
 	print("[host] level started: ", ok)
 	var start: float = Net.level.players[1].position.x
 	ok = await _until(func() -> bool: return Net.level.players[1].position.x > start + 2.0, 15.0)
-	print("[host] P2 moved by friend's input through the server: %s (%.2f -> %.2f)" % [ok, start, Net.level.players[1].position.x])
+	print("[host] P2 moved by the guest's input: ", ok)
 	ok = await _until(func() -> bool: return Net.level.done[1], 10.0)
-	print("[host] P2 left an echo: ", ok)
 	Input.action_press("echo")
 	await _wait(0.2)
 	Input.action_release("echo")
 	ok = await _until(func() -> bool: return Net.level.echoes.size() == 2, 5.0)
-	print("[host] two echoes after shared timeline: ", ok)
+	print("[host] shared timeline echoes: ", ok)
 	await _wait(3.0)
 
 
-func _client() -> void:
-	var path := OS.get_environment("ECHO_CODE_FILE")
-	var ok := await _until(func() -> bool: return FileAccess.file_exists(path) and FileAccess.get_file_as_string(path).length() == 5, 30.0)
-	var code := FileAccess.get_file_as_string(path)
-	print("[guest] got code from host: ", code)
-	Net.join_room("zz")
-	print("[guest] short code rejected: ", Net.status_is_error)
-	Net.join_room(code.to_lower())
-	ok = await _until(func() -> bool: return Net.level != null and Net.level.players.size() == 2, 25.0)
-	print("[guest] joined room and level loaded: ", ok)
+func _guest_a() -> void:
+	Game.settings.player_name = "Koryun"
+	await _wait(1.5)
+	Net.connect_server()
+	var ok := await _until(func() -> bool: return Net.state == Net.State.BROWSING, 15.0)
+	ok = await _until(func() -> bool: return Net.lobbies.size() >= 1, 10.0)
+	var lob: Dictionary = Net.lobbies[0] if ok else {}
+	print("[koryun] sees public lobby in the list: %s  %s" % [ok, lob])
+	Net.join_lobby(str(lob.get("code", "")))
+	ok = await _until(func() -> bool: return Net.state == Net.State.PAIRED, 10.0)
+	print("[koryun] joined from the list: %s, host is %s" % [ok, Net.partner_name])
+	ok = await _until(func() -> bool: return Net.state == Net.State.BROWSING, 10.0)
+	print("[koryun] got kicked: %s  status: %s" % [ok, Net.status])
+	Net.join_lobby(str(lob.get("code", "")))
+	ok = await _until(func() -> bool: return Net.status.contains("removed"), 5.0)
+	print("[koryun] cannot rejoin after kick: %s  status: %s" % [ok, Net.status])
+	Net.create_lobby("Secret base", false, "lion")
+	ok = await _until(func() -> bool: return Net.state == Net.State.WAITING, 10.0)
+	print("[koryun] private lobby with custom code: %s code=%s public=%s" % [ok, Net.room_code, Net.room_public])
+	var f := FileAccess.open(_flag("a_done"), FileAccess.WRITE)
+	f.store_string(str(lob.get("code", "")))
+	f.close()
+	await _wait(20.0)
+
+
+func _guest_b() -> void:
+	Game.settings.player_name = "David"
+	var ok := await _until(func() -> bool: return FileAccess.file_exists(_flag("a_done")), 40.0)
+	var host_code := FileAccess.get_file_as_string(_flag("a_done"))
+	Net.connect_server()
+	ok = await _until(func() -> bool: return Net.state == Net.State.BROWSING, 15.0)
+	await _wait(1.0)
+	var names := []
+	for l in Net.lobbies:
+		names.append(l.name)
+	print("[david] public list shows only public lobbies: %s  %s" % [names.size() == 1, names])
+	Net.create_lobby("Copycat", false, "LION")
+	ok = await _until(func() -> bool: return Net.status.contains("taken"), 5.0)
+	print("[david] taken custom code rejected: %s  status: %s" % [ok, Net.status])
+	Net.join_lobby(host_code)
+	ok = await _until(func() -> bool: return Net.level != null and Net.level.players.size() == 2, 20.0)
+	print("[david] joined and the host started the level: ", ok)
 	await _wait(1.0)
 	var lvl: Level = Net.level
 	var before: float = lvl.players[1].position.x
@@ -80,10 +126,10 @@ func _client() -> void:
 	await _wait(1.2)
 	Input.action_release("move_right")
 	await _wait(0.6)
-	print("[guest] my player moved on screen: %s (%.2f -> %.2f)" % [lvl.players[1].position.x > before + 2.0, before, lvl.players[1].position.x])
+	print("[david] my player moved on screen: ", lvl.players[1].position.x > before + 2.0)
 	Input.action_press("echo")
 	await _wait(0.2)
 	Input.action_release("echo")
 	ok = await _until(func() -> bool: return lvl.echoes.size() == 2, 10.0)
-	print("[guest] received both echoes: ", ok)
+	print("[david] received both echoes: ", ok)
 	await _wait(1.0)

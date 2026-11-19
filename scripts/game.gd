@@ -32,6 +32,7 @@ var settings := {
 	"shake": true,
 	"key_hints": true,
 	"server": "",
+	"player_name": "",
 }
 var ui_theme: Theme
 var font_title: FontFile

@@ -1,78 +1,90 @@
-# Echo
+<div align="center">
 
-A 2.5D puzzle platformer made in Godot 4.7 (GL Compatibility, works for web export).
+# ECHO
 
-Subject 712, call sign Black Dolphin, crash-lands on Nyx-4. The moon's magnetic field, the Echo,
-remembers every life lost there and plays it back.
+**Every life you lose comes back to help you.**
+
+A 2.5D puzzle platformer about dying on purpose.
+
+<a href="trailer/echo_trailer.mp4"><img src="docs/images/trailer-preview.gif" width="640" alt="Echo trailer preview"></a>
+
+[▶ Watch the full trailer](trailer/echo_trailer.mp4) · [30-second teaser](trailer/echo_teaser_30s.mp4)
+
+</div>
+
+---
+
+## The story
+
+Subject 712, call sign **Black Dolphin**, crash-lands on **Nyx-4**, a red moon very far from home.
+The old crews had a name for its magnetic field. They called it **the Echo**.
+It remembers everything that dies here. And it plays it back.
 
 ## How it plays
-- **Q** ends your current life and leaves an **echo**. Next life, the echo replays exactly what you did,
-  then stays where it stopped and becomes solid. Echoes hold plates, act as steps, and build staircases.
-- **Dying** on spikes leaves a **crystal body** that is solid from the start of your next life: a bridge over pits.
-- Plates open gates (and run lifts) only while something stands on them. Colours match plates to gates.
-- Up to 3 echoes per level; a 4th replaces the oldest. Stars depend on how many lives you used (par).
 
-### Chapter 2 mechanics (levels 9-16)
-- **Grip walls** (green moss): jump into one while holding toward it to cling, SPACE to wall-jump.
-  You can also leave an echo while clinging; it stays hanging on the wall as a ledge.
-- **Vents**: updraft columns that lift you while you are inside them.
-- **Acid**: dying in acid leaves a **slime body** that bounces you high, a bounce back.
-- **Portals**: one way. Orange swirl in, violet swirl out.
-- **Ferries**: carts that run back and forth on their own.
-- **Dark levels**: only you, your echoes, plates, gates and hazards give light.
+Every attempt is a new life. Your old lives don't disappear: they come back and help.
 
-## Online co-op with room codes (desktop builds)
-Players connect through a small **room server**. One player creates a room and gets a 5-letter code,
-the friend types the code and joins. Only the server PC needs an open port.
+- **Leave an echo.** Press **Q** to end your life on purpose. Next time, your echo replays exactly what you did, then stays where it stopped and turns solid.
+- **Use yourself.** Echoes hold down plates, open gates, run lifts and become steps you can climb.
+- **Fall forward.** Dying on spikes leaves a crystal body you can walk across. Dying in acid leaves slime that **bounces you back** up.
+- **Play it smart.** Every level has a par. Finish with fewer lives to earn all three stars.
 
-### Run the room server (on your PC)
-1. Double-click `run_server.bat` (or run `Godot_console.exe --headless --path . -- --server`;
-   an exported build works too: `Echo.exe --headless -- --server`). Leave the window open.
-2. On your router, forward **UDP port 7777** to this PC. Windows may ask to allow it through the firewall: allow it.
-3. Your friends set the room server address (wrench icon in the Multiplayer screen) to your **public IP**
-   or a free dynamic-DNS name. You play on the same PC as the server with `127.0.0.1`.
-4. To ship a build where friends never type the address, change `DEFAULT_SERVER` at the top of
-   `scripts/net.gd` to your public IP or DNS name before exporting.
+<p align="center">
+  <img src="docs/images/echoes.jpg" width="49%" alt="Echoes holding plates open for you">
+  <img src="docs/images/body-bridge.jpg" width="49%" alt="A bridge made of your own fallen bodies">
+</p>
 
-### Playing
-Main menu > **Multiplayer** > **Create room** (you get a code) or **Join room** (type the code).
-The host picks a level. The host's game runs the level; the guest's inputs and the host's world state
-travel through the room server.
+## Features
 
-Co-op rules:
-- Both players use the normal controls on their own computer. Player 2 is the pink astronaut.
-- You can stand on your partner's head.
-- **x2 plates** need two weights (players or echoes).
-- Shared timeline: when one of you presses Q or dies, that player waits. When both are done,
-  the next life starts and both runs replay as echoes.
-- Each player must stand at a **different beacon** to finish.
-- 6 co-op levels: Hold the Door, Heavy Plate, Boost, Two Halves, Bridge for Two, Heavy Lifting.
+- **16 handcrafted levels** across two chapters, from the crash site to the heart of the Echo
+- **Chapter 2 mechanics:** grip walls and wall-jumps, rising vents, acid and bouncy slime, one-way portals, moving carts and pitch-black levels lit only by your echoes
+- **Online co-op:** 6 levels built for two players, where you stand on each other's heads, share heavy plates and plan lives together
+- **Public and private lobbies:** browse open games, or play with a friend using a lobby code
+- Story moments, three stars per level, full gamepad support and adjustable settings
 
-Tests: `tools/test_coop.tscn` plays all co-op levels with two scripted players; `tools/test_net.tscn`
-runs a host and a guest against a running room server (`ECHO_ROLE=host` / `guest`, `ECHO_CODE_FILE=<path>`).
+<p align="center">
+  <img src="docs/images/bounce-back.jpg" width="49%" alt="Bouncing off your own slime">
+  <img src="docs/images/grip.jpg" width="49%" alt="Climbing grip walls">
+</p>
+<p align="center">
+  <img src="docs/images/lights-out.jpg" width="49%" alt="A dark level lit by your echoes">
+  <img src="docs/images/echo-chamber.jpg" width="49%" alt="The final level">
+</p>
+
+## Multiplayer
+
+Play the co-op campaign online with a friend.
+
+1. Open **Multiplayer** from the main menu and type your name.
+2. **Join** a public lobby from the list, or **create** your own.
+3. Make your lobby **public** so anyone can join, or **private** so only people with your code can.
+   You can pick your own code or get a random one.
+4. The lobby creator picks the level and can remove a player if needed.
+
+In co-op, both of you need to reach a beacon. When one player leaves an echo or falls, they wait for the other,
+and then both of your past lives replay together in the next attempt.
+
+<p align="center">
+  <img src="docs/images/multiplayer.jpg" width="70%" alt="Multiplayer lobby list">
+</p>
 
 ## Controls
-| Action | Keys |
-|---|---|
-| Move | A / D, arrow keys, left stick |
-| Jump | Space, W, Up, pad A |
-| Leave an echo | Q or E, pad X |
-| Clear all echoes | R, pad Y |
-| Pause | Esc, pad Start |
 
-## Project layout
-- `scripts/levels.gd`: all 16 levels as ASCII maps (`#` rock, `G` grip rock, `S` spawn, `X` beacon,
-  `^` spikes, `%` acid, `~` vent, `1`/`3` portal in, `2`/`4` portal out, `a`-`d` plates, `A`-`D` gates,
-  lifts and ferries in the `lifts` list as `[col, row, dx, dy, channel]`, channel `""` = always moving,
-  `"dark": true` for a dark level).
-- `scripts/level.gd`: builds a level from its map and runs the echo time loop.
-- `scripts/player.gd`, `scripts/echo.gd`: player controller and recorded echoes.
-- `scripts/hud.gd`, `main_menu.gd`, `level_select.gd`, `text_screen.gd`: UI.
-- `tools/`: automated tests (not needed for the game).
-  - Solutions: `godot --headless --fixed-fps 60 --path . res://tools/test_run.tscn`
-  - Set `ECHO_NEG=1` to check that each level cannot be skipped.
+| Action | Keyboard | Gamepad |
+|---|---|---|
+| Move | A / D or arrow keys | Left stick |
+| Jump / wall-jump | Space, W or Up | A |
+| Leave an echo | Q or E | X |
+| Clear all echoes | R | Y |
+| Pause | Esc | Start |
+
+<p align="center">
+  <img src="docs/images/menu.jpg" width="70%" alt="Main menu">
+</p>
 
 ## Credits
-Alen Gevorgyan, David Ghazaryan & Koryun Gaboyan.
-3D models, fonts and sound effects: Kenney (kenney.nl), CC0. License files are next to the assets.
-Ambient music loop generated for this project.
+
+A game by **Alen Gevorgyan**, **David Ghazaryan** and **Koryun Gaboyan**.
+
+- 3D models, fonts, icons and sound effects by [Kenney](https://kenney.nl) (CC0)
+- Made with [Godot Engine](https://godotengine.org)

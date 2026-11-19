@@ -12,19 +12,30 @@ func _ready() -> void:
 			node = load("res://scenes/%s.tscn" % ("level_select" if w == "select" else w)).instantiate()
 		elif w.begins_with("lobby"):
 			node = load("res://scenes/coop_menu.tscn").instantiate()
+			Game.settings.player_name = "Alen"
+			Net.lobbies = [
+				{"code": "MB593", "name": "Night shift", "host": "Koryun", "players": 1, "in_game": false},
+				{"code": "QX7TA", "name": "Speedrunners", "host": "Mira", "players": 2, "in_game": true},
+				{"code": "H2KDN", "name": "David's lobby", "host": "David", "players": 1, "in_game": false},
+			]
 			if w == "lobby_wait":
-				Net.room_code = "NFD74"
+				Net.room_code = "LION"
+				Net.room_name = "Secret base"
+				Net.room_public = false
 				Net.is_host = true
 				Net.state = Net.State.WAITING
-				Net.status = "Room created. Send the code to your friend."
+				Net.status = "Private lobby created. Send the code to your friend."
 			elif w == "lobby_paired":
-				Net.room_code = "NFD74"
+				Net.room_code = "MB593"
+				Net.room_name = "Alen's lobby"
+				Net.room_public = true
+				Net.partner_name = "David"
 				Net.is_host = true
 				Net.state = Net.State.PAIRED
-				Net.status = "Your friend joined! Pick a level."
+				Net.status = "David joined! Pick a level."
 			else:
-				Net.state = Net.State.OFFLINE
-				Net.status = ""
+				Net.state = Net.State.BROWSING
+				Net.status = "Connected. Join a public lobby, or create your own."
 		elif w.begins_with("c"):
 			Game.coop = true
 			Game.current_level = int(w.substr(1)) - 1
@@ -37,6 +48,9 @@ func _ready() -> void:
 		if w == "settings":
 			await get_tree().process_frame
 			node.ui.add_child(SettingsPanel.new())
+		if w == "lobby_create":
+			await get_tree().process_frame
+			node._open_create_popup()
 		for i in 240:
 			await get_tree().process_frame
 		var img := get_viewport().get_texture().get_image()
