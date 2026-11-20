@@ -22,7 +22,7 @@ func _ready() -> void:
 	_panel.custom_minimum_size = Vector2(620, 0)
 	center.add_child(_panel)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", 6)
 	_panel.add_child(box)
 	var title := _label("SETTINGS", 40, Color(1, 1, 1), Game.font_title)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -38,6 +38,7 @@ func _ready() -> void:
 	box.add_child(_section("GAMEPLAY"))
 	_toggle(box, "Screen shake", "shake")
 	_toggle(box, "Key hints on screen", "key_hints")
+	_toggle(box, "Touch buttons", "touch_buttons")
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 6)
 	box.add_child(gap)
@@ -79,7 +80,7 @@ func _label(text: String, size: int, color: Color, font: Font) -> Label:
 
 func _section(text: String) -> Label:
 	var l := _label(text, 16, Color(0.55, 0.9, 1.0, 0.85), Game.font_title)
-	l.custom_minimum_size = Vector2(0, 30)
+	l.custom_minimum_size = Vector2(0, 24)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	return l
 

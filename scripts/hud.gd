@@ -92,10 +92,12 @@ func setup(l: Level) -> void:
 	_keys.offset_top = -44
 	_keys.offset_bottom = -16
 	root.add_child(_keys)
-	_keys.visible = bool(Game.settings.key_hints)
+	_keys.visible = bool(Game.settings.key_hints) and not Game.touch_enabled()
+	_touch_sync()
 	Game.settings_changed.connect(func() -> void:
 		if is_instance_valid(_keys) and not level.finished:
-			_keys.visible = bool(Game.settings.key_hints))
+			_keys.visible = bool(Game.settings.key_hints) and not Game.touch_enabled()
+		_touch_sync())
 	_toast = _label("", 30, Color(0.7, 1.0, 1.0), Game.font_title)
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -131,6 +133,19 @@ func _vignette() -> Texture2D:
 	t.width = 256
 	t.height = 256
 	return t
+
+
+var _touch: TouchControls
+
+
+func _touch_sync() -> void:
+	var want := Game.touch_enabled()
+	if want and _touch == null:
+		_touch = TouchControls.new()
+		add_child(_touch)
+	elif not want and _touch:
+		_touch.queue_free()
+		_touch = null
 
 
 func refresh() -> void:

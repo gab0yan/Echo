@@ -9,7 +9,7 @@ enum State { OFFLINE, CONNECTING, BROWSING, WAITING, PAIRED }
 
 const PORT := 7777
 const PROTOCOL := 3
-const DEFAULT_SERVER := "127.0.0.1"
+const DEFAULT_SERVER := "37.186.113.43"
 const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const CUSTOM_CHARS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const CODE_LENGTH := 5
@@ -56,6 +56,17 @@ func _ready() -> void:
 			if a.begins_with("--port="):
 				port = int(a.substr(7))
 		start_server.call_deferred(port)
+
+
+func _new_enet() -> Variant:
+	if not ClassDB.class_exists("ENetMultiplayerPeer"):
+		return null
+	return ClassDB.instantiate("ENetMultiplayerPeer")
+
+
+func _online_peer() -> bool:
+	var p := multiplayer.multiplayer_peer
+	return p != null and not p is OfflineMultiplayerPeer
 
 
 func server_address() -> String:
@@ -108,8 +119,11 @@ func connect_server() -> void:
 		return
 	leave()
 	var hp := _server_host_port()
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(hp[0], hp[1])
+	var peer: Variant = _new_enet()
+	if peer == null:
+		_set_status("Online play is not available in this version.", true)
+		return
+	var err: int = peer.create_client(hp[0], hp[1])
 	if err != OK:
 		_set_status("Could not start a connection to %s" % server_address(), true)
 		return
@@ -126,7 +140,7 @@ func _on_connected() -> void:
 
 
 func refresh_lobbies() -> void:
-	if state == State.BROWSING and multiplayer.multiplayer_peer is ENetMultiplayerPeer:
+	if state == State.BROWSING and _online_peer():
 		_srv_list.rpc_id(1)
 
 
@@ -167,7 +181,7 @@ func leave_room() -> void:
 	if state == State.WAITING or state == State.PAIRED:
 		_srv_leave.rpc_id(1)
 	_clear_room()
-	if multiplayer.multiplayer_peer is ENetMultiplayerPeer:
+	if _online_peer():
 		_set_state(State.BROWSING)
 		refresh_lobbies()
 
@@ -192,7 +206,9 @@ func leave() -> void:
 	if peer and not peer is OfflineMultiplayerPeer:
 		if not server_mode and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
 			_srv_leave.rpc_id(1)
-			(peer as ENetMultiplayerPeer).host.flush()
+			var h: Variant = peer.get("host")
+			if h:
+				h.flush()
 		peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	_clear_room()
@@ -230,8 +246,12 @@ func _on_peer_disconnected(id: int) -> void:
 
 func start_server(port := PORT) -> Error:
 	server_mode = true
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(port, 128)
+	var peer: Variant = _new_enet()
+	if peer == null:
+		_set_status("Online play is not available in this version.", true)
+		print("[server] online play is not available in this build")
+		return ERR_UNAVAILABLE
+	var err: int = peer.create_server(port, 128)
 	if err != OK:
 		print("[server] could not listen on UDP %d (error %d)" % [port, err])
 		return err

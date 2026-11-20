@@ -2,11 +2,13 @@ extends Node
 
 func _ready() -> void:
 	Game.save_enabled = false
+	if OS.get_environment("ECHO_TOUCH") != "":
+		Game.settings.touch_buttons = true
 	var out := OS.get_environment("ECHO_OUT")
 	var which := OS.get_environment("ECHO_SHOT").split(",")
 	for w in which:
 		var node: Node
-		if w == "menu" or w == "settings":
+		if w == "menu" or w == "settings" or w == "cover":
 			node = load("res://scenes/main_menu.tscn").instantiate()
 		elif w in ["select", "ending", "credits"]:
 			node = load("res://scenes/%s.tscn" % ("level_select" if w == "select" else w)).instantiate()
@@ -48,6 +50,9 @@ func _ready() -> void:
 		if w == "settings":
 			await get_tree().process_frame
 			node.ui.add_child(SettingsPanel.new())
+		if w == "cover":
+			await get_tree().process_frame
+			node.ui.visible = false
 		if w == "lobby_create":
 			await get_tree().process_frame
 			node._open_create_popup()

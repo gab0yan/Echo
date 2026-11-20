@@ -33,6 +33,7 @@ var settings := {
 	"key_hints": true,
 	"server": "",
 	"player_name": "",
+	"touch_buttons": false,
 }
 var ui_theme: Theme
 var font_title: FontFile
@@ -50,6 +51,7 @@ func _ready() -> void:
 	_load()
 	_load_settings()
 	apply_settings()
+	_build_rotate_overlay()
 	_fade_layer = CanvasLayer.new()
 	_fade_layer.layer = 100
 	add_child(_fade_layer)
@@ -300,9 +302,58 @@ func _save_settings() -> void:
 	c.save(SETTINGS_PATH)
 
 
+func is_touch_device() -> bool:
+	if OS.get_environment("ECHO_TOUCH") != "":
+		return true
+	return OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
+
+
+func touch_enabled() -> bool:
+	return bool(settings.get("touch_buttons", false))
+
+
+var _rotate: Control
+
+
+func _build_rotate_overlay() -> void:
+	if not is_touch_device():
+		return
+	var layer := CanvasLayer.new()
+	layer.layer = 99
+	add_child(layer)
+	_rotate = ColorRect.new()
+	(_rotate as ColorRect).color = Color(0.02, 0.01, 0.06, 0.97)
+	_rotate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_rotate.visible = false
+	layer.add_child(_rotate)
+	var l := Label.new()
+	l.text = "ROTATE YOUR PHONE
+
+Echo plays in landscape."
+	l.add_theme_font_override("font", font_title)
+	l.add_theme_font_size_override("font_size", 40)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_rotate.add_child(l)
+
+
+func _process(_delta: float) -> void:
+	if _rotate:
+		var vp := get_viewport().get_visible_rect().size
+		var portrait := vp.y > vp.x * 1.05
+		if portrait != _rotate.visible:
+			_rotate.visible = portrait
+
+
 func _load_settings() -> void:
 	var c := ConfigFile.new()
 	if c.load(SETTINGS_PATH) != OK:
+		if is_touch_device():
+			settings.touch_buttons = true
+			settings.quality = 0
+			settings.shake = false
 		return
 	for k in settings:
 		settings[k] = c.get_value("settings", k, settings[k])

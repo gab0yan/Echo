@@ -819,10 +819,16 @@ func _build_players() -> void:
 	add_child(_spawn_fx)
 
 
+func _touch_text(t: String) -> String:
+	var out := t.replace("A / D  to move\nSPACE  to jump", "Arrow buttons to move\nbig button to jump")
+	out = out.replace("press  Q", "tap the echo button").replace("press Q", "tap the echo button")
+	return out.replace("press SPACE to wall-jump", "tap jump to wall-jump")
+
+
 func _build_hints() -> void:
 	for h in data.get("hints", []):
 		var l := Label3D.new()
-		l.text = h[2]
+		l.text = _touch_text(h[2]) if Game.touch_enabled() else h[2]
 		l.font = Game.font_body
 		l.font_size = 44
 		l.outline_size = 12
