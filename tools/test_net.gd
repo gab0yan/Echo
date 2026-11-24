@@ -77,13 +77,20 @@ func _host() -> void:
 	await _wait(3.0)
 
 
+func _alen_lobby() -> Dictionary:
+	for l in Net.lobbies:
+		if l.get("host") == "Alen":
+			return l
+	return {}
+
+
 func _guest_a() -> void:
 	Game.settings.player_name = "Koryun"
 	await _wait(1.5)
 	Net.connect_server()
 	var ok := await _until(func() -> bool: return Net.state == Net.State.BROWSING, 15.0)
-	ok = await _until(func() -> bool: return Net.lobbies.size() >= 1, 10.0)
-	var lob: Dictionary = Net.lobbies[0] if ok else {}
+	ok = await _until(func() -> bool: return _alen_lobby() != {}, 10.0)
+	var lob: Dictionary = _alen_lobby()
 	print("[koryun] sees public lobby in the list: %s  %s" % [ok, lob])
 	Net.join_lobby(str(lob.get("code", "")))
 	ok = await _until(func() -> bool: return Net.state == Net.State.PAIRED, 10.0)
@@ -109,10 +116,12 @@ func _guest_b() -> void:
 	Net.connect_server()
 	ok = await _until(func() -> bool: return Net.state == Net.State.BROWSING, 15.0)
 	await _wait(1.0)
+	# Real players may have lobbies open on a live server, so only judge the test's own lobbies.
 	var names := []
 	for l in Net.lobbies:
-		names.append(l.name)
-	print("[david] public list shows only public lobbies: %s  %s" % [names.size() == 1, names])
+		if l.name in ["Alen's lobby", "Secret base"]:
+			names.append(l.name)
+	print("[david] public list shows only public lobbies: %s  %s" % [names == ["Alen's lobby"], names])
 	Net.create_lobby("Copycat", false, "LION")
 	ok = await _until(func() -> bool: return Net.status.contains("taken"), 5.0)
 	print("[david] taken custom code rejected: %s  status: %s" % [ok, Net.status])

@@ -193,7 +193,7 @@ func _rebuild() -> void:
 		return
 	_close_popup()
 	_clear_stage()
-	_server_chip.text = "ROOM SERVER  %s" % Net.server_address()
+	_server_chip.text = "ROOM SERVER  %s" % ("OFFICIAL" if Net.using_default_server() else Net.server_address())
 	match Net.state:
 		Net.State.OFFLINE:
 			_view_offline()
@@ -726,12 +726,12 @@ func _open_server_popup() -> void:
 	var t := label("ROOM SERVER", 30, Color(1, 1, 1), Game.font_title)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var d := label("The address of the PC or Raspberry Pi running the Echo room server.\nUse 127.0.0.1 if it runs on this PC.", 17, Color(0.8, 0.9, 1.0, 0.85), Game.font_body)
+	var d := label("Leave empty to use the official server.\nOr enter the address of your own Echo room server (127.0.0.1 if it runs on this PC).", 17, Color(0.8, 0.9, 1.0, 0.85), Game.font_body)
 	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(d)
-	var edit := _edit("127.0.0.1", CYAN, 24)
-	edit.text = Net.server_address()
+	var edit := _edit("Official server", CYAN, 24)
+	edit.text = "" if Net.using_default_server() else Net.server_address()
 	edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(edit)
 	var row := HBoxContainer.new()
