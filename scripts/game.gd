@@ -286,7 +286,22 @@ func apply_settings() -> void:
 	if bool(settings.fullscreen) != is_full:
 		DisplayServer.window_set_mode(want)
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if settings.vsync else DisplayServer.VSYNC_DISABLED)
-	get_viewport().msaa_3d = Viewport.MSAA_2X if int(settings.quality) >= 1 else Viewport.MSAA_DISABLED
+	var vp := get_viewport()
+	vp.msaa_3d = Viewport.MSAA_2X if high_quality() else Viewport.MSAA_DISABLED
+	if not vp.size_changed.is_connected(_update_render_scale):
+		vp.size_changed.connect(_update_render_scale)
+	_update_render_scale()
+
+
+func _update_render_scale() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var vp := get_viewport()
+	var px := float(DisplayServer.window_get_size().x)
+	var target := 1920.0 if high_quality() else 1280.0
+	var k := clampf(target / maxf(px, 1.0), 0.5, 1.0)
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_scale = k
 
 
 func high_quality() -> bool:

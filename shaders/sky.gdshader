@@ -55,6 +55,9 @@ void sky() {
 	vec3 d = EYEDIR;
 	float h = clamp(d.y, -1.0, 1.0);
 	vec3 c = mix(horizon_color, top_color, smoothstep(-0.05, 0.55, h));
+	if (AT_CUBEMAP_PASS) {
+		COLOR = c * dim;
+	} else {
 	c += glow_color * pow(max(0.0, 1.0 - abs(h + 0.02) * 3.0), 3.0) * 0.3;
 	float neb = noise(d * 3.0) * 0.6 + noise(d * 7.0) * 0.3 + noise(d * 15.0) * 0.1;
 	c += vec3(0.28, 0.08, 0.38) * smoothstep(0.45, 0.85, neb) * 0.45 * smoothstep(-0.1, 0.4, h);
@@ -70,4 +73,5 @@ void sky() {
 	vec4 mo = body(d, moon_dir, moon_size, vec3(0.75, 0.78, 0.85), vec3(0.5, 0.52, 0.6), 2.0);
 	c = mix(c, mo.rgb, mo.a) + mo.rgb * (1.0 - mo.a) * 0.4;
 	COLOR = c * dim;
+	}
 }

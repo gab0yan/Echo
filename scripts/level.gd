@@ -67,6 +67,7 @@ var _menu_time := 0.0
 var _rock_mat: ShaderMaterial
 var _beam: MeshInstance3D
 var _spawn_fx: CPUParticles3D
+var _decor_root: Node3D
 var _portal_cds: Array[int] = []
 var _ended := false
 var _snap_plates := 0
@@ -90,9 +91,12 @@ func _ready() -> void:
 	dark = bool(data.get("dark", false))
 	_build_environment()
 	_parse()
+	_decor_root = Node3D.new()
+	add_child(_decor_root)
 	_build_terrain()
 	_build_background()
 	_build_decor()
+	_batch_decor()
 	_build_entities()
 	_build_camera()
 	_build_motes()
@@ -190,11 +194,13 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	sky.sky_material = Props.shader_mat("res://shaders/sky.gdshader")
-	sky.radiance_size = Sky.RADIANCE_SIZE_64
+	sky.radiance_size = Sky.RADIANCE_SIZE_32
+	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.5, 0.38, 0.6)
 	env.ambient_light_energy = 0.55
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.05
 	env.glow_enabled = Game.high_quality()
@@ -289,6 +295,18 @@ func _block_xf(c: int, y: int) -> Transform3D:
 
 
 func _add_blocks(xfs: Array[Transform3D], mat: Material, shadows := true) -> void:
+	var chunks := {}
+	for xf in xfs:
+		var k := _chunk_of(xf.origin.x)
+		if not chunks.has(k):
+			var fresh: Array[Transform3D] = []
+			chunks[k] = fresh
+		(chunks[k] as Array[Transform3D]).append(xf)
+	for k in chunks:
+		_add_block_chunk(chunks[k], mat, shadows)
+
+
+func _add_block_chunk(xfs: Array[Transform3D], mat: Material, shadows: bool) -> void:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	var box := BoxMesh.new()
@@ -337,7 +355,46 @@ func _build_background() -> void:
 		p.position = Vector3(_rng.randf_range(-20, cols + 20), _rng.randf_range(-1.5, 2.0), _rng.randf_range(-60, -45))
 		p.rotation.y = _rng.randf() * TAU
 		Props.set_shadows(p, false)
-		add_child(p)
+		_decor_root.add_child(p)
+
+
+const CHUNK := 10.0
+
+
+func _chunk_of(x: float) -> int:
+	return int(floor(x / CHUNK))
+
+
+func _batch_decor() -> void:
+	var groups := {}
+	var inv := _decor_root.global_transform.affine_inverse()
+	for n in _decor_root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null or not mi.is_visible_in_tree():
+			continue
+		var xf := inv * mi.global_transform
+		var ov: Material = mi.material_override
+		var key := "%d_%d_%d_%d" % [mi.mesh.get_rid().get_id(), int(mi.cast_shadow), ov.get_rid().get_id() if ov else 0, int(floor(xf.origin.x / 20.0))]
+		if not groups.has(key):
+			groups[key] = {"mesh": mi.mesh, "shadow": mi.cast_shadow, "mat": ov, "xf": []}
+		(groups[key].xf as Array).append(xf)
+	for key in groups:
+		var g: Dictionary = groups[key]
+		var list: Array = g.xf
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = g.mesh
+		mm.instance_count = list.size()
+		for i in list.size():
+			mm.set_instance_transform(i, list[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.cast_shadow = g.shadow
+		if g.mat:
+			mmi.material_override = g.mat
+		add_child(mmi)
+	for c in _decor_root.get_children():
+		c.queue_free()
 
 
 func _build_decor() -> void:
@@ -357,13 +414,13 @@ func _build_decor() -> void:
 				m.position = Vector3(c + 0.5 + _rng.randf_range(-0.3, 0.3), top, _rng.randf_range(-1.25, -0.7))
 				m.rotation.y = _rng.randf() * TAU
 				Props.set_shadows(m, true)
-				add_child(m)
+				_decor_root.add_child(m)
 			if not reserved.has(c) and _rng.randf() < 0.3:
 				var pick2: Array = FRONT_PROPS[_rng.randi() % FRONT_PROPS.size()]
 				var f := Props.model("res://assets/models/space/%s.glb" % pick2[0], pick2[1])
 				f.position = Vector3(c + 0.5 + _rng.randf_range(-0.3, 0.3), top, _rng.randf_range(0.9, 1.35))
 				f.rotation.y = _rng.randf() * TAU
-				add_child(f)
+				_decor_root.add_child(f)
 	for c in range(-12, cols + 12, 3):
 		if _rng.randf() < 0.45:
 			var pick3: Array = BACK_PROPS[_rng.randi() % BACK_PROPS.size()]
@@ -372,12 +429,12 @@ func _build_decor() -> void:
 			b.position = Vector3(c + 0.5, float(h), -9.2)
 			b.rotation.y = _rng.randf() * TAU
 			Props.set_shadows(b, false)
-			add_child(b)
+			_decor_root.add_child(b)
 	if data.get("wreck", false):
 		var ship := Props.model("res://assets/models/space/craft_cargoA.glb", 3.2)
 		ship.position = spawn + Vector3(-0.2, -0.35, -1.6)
 		ship.rotation_degrees = Vector3(8, 70, -18)
-		add_child(ship)
+		_decor_root.add_child(ship)
 		var smoke := _particles(Color(0.35, 0.3, 0.35, 0.5), 40, 3.0, Vector3(0, 1.4, 0), 0.25, 0.6)
 		smoke.position = spawn + Vector3(0.4, 0.6, -1.6)
 		add_child(smoke)
@@ -398,7 +455,7 @@ func _build_decor() -> void:
 			y += Props.aabb_of(m).size.y * 0.98
 		rocket.scale = Vector3.ONE * 2.2
 		rocket.position = Vector3(exit_pos.x + 3.0, exit_pos.y, -4.2)
-		add_child(rocket)
+		_decor_root.add_child(rocket)
 
 
 func _particles(color: Color, amount: int, life: float, vel: Vector3, size: float, spread: float) -> CPUParticles3D:
