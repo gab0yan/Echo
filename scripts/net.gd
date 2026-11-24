@@ -8,8 +8,9 @@ signal session_ended(reason: String)
 enum State { OFFLINE, CONNECTING, BROWSING, WAITING, PAIRED }
 
 const PORT := 7777
-const PROTOCOL := 3
-const DEFAULT_SERVER := "37.186.113.43"
+const PROTOCOL := 4
+const NET_BUFFER := 4 << 20
+const DEFAULT_SERVER := "wss://echo.gaboyan.am"
 const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const CUSTOM_CHARS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const CODE_LENGTH := 5
@@ -37,6 +38,7 @@ var _peer_room := {}
 var _rng := RandomNumberGenerator.new()
 var _jump_n := 0
 var _hello_t := -1.0
+var _ping_t := 0.0
 var _echo_n := 0
 var _reset_n := 0
 
@@ -58,10 +60,12 @@ func _ready() -> void:
 		start_server.call_deferred(port)
 
 
-func _new_enet() -> Variant:
-	if not ClassDB.class_exists("ENetMultiplayerPeer"):
-		return null
-	return ClassDB.instantiate("ENetMultiplayerPeer")
+func _new_peer() -> WebSocketMultiplayerPeer:
+	var peer := WebSocketMultiplayerPeer.new()
+	peer.inbound_buffer_size = NET_BUFFER
+	peer.outbound_buffer_size = NET_BUFFER
+	peer.max_queued_packets = 8192
+	return peer
 
 
 func _online_peer() -> bool:
@@ -71,7 +75,28 @@ func _online_peer() -> bool:
 
 func server_address() -> String:
 	var s := str(Game.settings.get("server", DEFAULT_SERVER)).strip_edges()
-	return s if s != "" else DEFAULT_SERVER
+	# The old ENet/UDP server address from protocol <= 3 no longer works.
+	if s == "" or s.begins_with("37.186.113.43"):
+		return DEFAULT_SERVER
+	return s
+
+
+# Accepts "wss://host[/path]", "ws://host:port", or a bare "host[:port]" (plain ws, for LAN use).
+func using_default_server() -> bool:
+	return server_address() == DEFAULT_SERVER
+
+
+# What the UI shows: never reveals the official server's address.
+func server_label() -> String:
+	return "the official room server" if using_default_server() else "the room server at " + server_address()
+
+
+func _server_url() -> String:
+	var s := server_address()
+	if s.begins_with("ws://") or s.begins_with("wss://"):
+		return s
+	var hp := _server_host_port()
+	return "ws://%s:%d" % [hp[0], hp[1]]
 
 
 func _server_host_port() -> Array:
@@ -118,14 +143,10 @@ func connect_server() -> void:
 	if state != State.OFFLINE:
 		return
 	leave()
-	var hp := _server_host_port()
-	var peer: Variant = _new_enet()
-	if peer == null:
-		_set_status("Online play is not available in this version.", true)
-		return
-	var err: int = peer.create_client(hp[0], hp[1])
+	var peer := _new_peer()
+	var err := peer.create_client(_server_url())
 	if err != OK:
-		_set_status("Could not start a connection to %s" % server_address(), true)
+		_set_status("Could not start a connection to %s." % server_label(), true)
 		return
 	multiplayer.multiplayer_peer = peer
 	_set_state(State.CONNECTING)
@@ -206,9 +227,7 @@ func leave() -> void:
 	if peer and not peer is OfflineMultiplayerPeer:
 		if not server_mode and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
 			_srv_leave.rpc_id(1)
-			var h: Variant = peer.get("host")
-			if h:
-				h.flush()
+			peer.poll()
 		peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	_clear_room()
@@ -224,9 +243,9 @@ func request_leave() -> void:
 
 
 func _on_failed() -> void:
-	var addr := server_address()
+	var addr := server_label()
 	leave()
-	_set_status("Could not reach the room server at %s." % addr, true)
+	_set_status("Could not reach %s." % addr, true)
 	session_ended.emit(status)
 
 
@@ -246,18 +265,14 @@ func _on_peer_disconnected(id: int) -> void:
 
 func start_server(port := PORT) -> Error:
 	server_mode = true
-	var peer: Variant = _new_enet()
-	if peer == null:
-		_set_status("Online play is not available in this version.", true)
-		print("[server] online play is not available in this build")
-		return ERR_UNAVAILABLE
-	var err: int = peer.create_server(port, 128)
+	var peer := _new_peer()
+	var err := peer.create_server(port)
 	if err != OK:
-		print("[server] could not listen on UDP %d (error %d)" % [port, err])
+		print("[server] could not listen on TCP %d (error %d)" % [port, err])
 		return err
 	multiplayer.multiplayer_peer = peer
 	multiplayer.server_relay = true
-	print("[server] Echo room server (protocol %d) listening on UDP port %d" % [PROTOCOL, port])
+	print("[server] Echo room server (protocol %d) listening for WebSockets on TCP port %d" % [PROTOCOL, port])
 	get_tree().change_scene_to_file("res://scenes/server.tscn")
 	return OK
 
@@ -520,12 +535,23 @@ func request_reset() -> void:
 
 
 func _process(delta: float) -> void:
+	# Proxies such as Cloudflare drop WebSockets after ~100 s of silence; keep idle clients alive.
+	if not server_mode and state != State.OFFLINE and state != State.CONNECTING:
+		_ping_t += delta
+		if _ping_t >= 30.0:
+			_ping_t = 0.0
+			_srv_ping.rpc_id(1)
 	if _hello_t > 0.0:
 		_hello_t -= delta
 		if _hello_t <= 0.0 and state == State.CONNECTING:
 			leave()
 			_set_status("The room server did not answer. It is probably running another version of Echo: update and restart it.", true)
 			session_ended.emit(status)
+
+
+@rpc("any_peer", "call_remote", "unreliable")
+func _srv_ping() -> void:
+	pass
 
 
 func _physics_process(_delta: float) -> void:

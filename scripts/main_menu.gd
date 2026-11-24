@@ -52,9 +52,8 @@ func _ready() -> void:
 	single.pressed.connect(_on_play)
 	row.add_child(single)
 	var web := OS.get_name() == "Web"
-	var multi_sub := "Download the desktop version\nto play online" if web else "Online co-op with a friend\n%d levels for two" % Levels.coop_count()
+	var multi_sub := "Online co-op with a friend\n%d levels for two" % Levels.coop_count()
 	var multi := _card("MULTIPLAYER", multi_sub, "res://assets/icons/multiplayer.png", Color(1.0, 0.65, 0.3))
-	multi.disabled = web
 	multi.pressed.connect(func() -> void: Game.go_coop_menu())
 	row.add_child(multi)
 	var icons := HBoxContainer.new()
